@@ -1,0 +1,54 @@
+pipeline {
+    agent { label 'shahzaib-dev' }
+
+    environment {
+        DOCKERHUB_CRED = credentials('DockerCred') 
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                echo 'Cloning repository...'
+                git branch: 'main', url: 'https://github.com/ShahzaibInnovation/Jenkins-Three-Tier-Deployment.git'
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                echo 'Building frontend and backend Docker images...'
+                sh 'docker build -t devops317/frontend-image:latest frontend/'
+                sh 'docker build -t devops317/backend-image:latest backend/'
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                echo 'Logging in and pushing images to Docker Hub...'
+                sh """
+                echo ${DOCKERHUB_CRED_PSW} | docker login -u ${DOCKERHUB_CRED_USR} --password-stdin
+                docker push devops317/frontend-image:latest
+                docker push devops317/backend-image:latest
+                """
+            }
+        }
+
+        stage('Clean Old Containers & Images') {
+            steps {
+                echo 'Cleaning old Docker containers and images...'
+                sh '''
+                docker-compose down -v
+                docker system prune -af
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo 'Deploying application using Docker Compose...'
+                sh 'docker-compose pull'
+                sh 'docker-compose up -d'
+            }
+        }
+    }
+}
